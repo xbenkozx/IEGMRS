@@ -3,6 +3,8 @@ import sqlite3, os, json
 from PySide6.QtCore import QObject
 
 from Constants import SETTINGS_DIR
+from RxSignal import RxSignal
+from Callsign import Callsign
 
 class LocalDatabase(QObject):
     __TABLES = [
@@ -68,14 +70,66 @@ class LocalDatabase(QObject):
                 query = f"CREATE TABLE {table['name']} ({columns})"
                 cursor.execute(query)
 
-    def syncLocalVehicles(self, signal_list):
+    def syncSignalData(self, signal_list):
         if signal_list != None:
             cursor = self.connection.cursor()
-            cursor.execute("DELETE FROM vehicles;")
+            cursor.execute("DELETE FROM rx_signal;")
             for v in signal_list:
-                vehicle = RxSignal(v)
-                vehicle.parse(v)
-                cursor.execute("INSERT INTO vehicles (id, stock, vin, make, model, series, color, year, status, status_code, keys_quantity, keybox_id, keybox_serial, is_checked_out, check_out_user, keybox_id_2, keybox_serial_2, is_checked_out_2, check_out_user_2, last_update_key_1, last_update_key_2) " 
-                               + f"VALUES ('{vehicle.id}', '{vehicle.stock}', '{vehicle.vin}', '{vehicle.make}', '{vehicle.model}', '{vehicle.series}', '{vehicle.color}', '{vehicle.year}', '{vehicle.status}', '{vehicle.status_code}', '{vehicle.keys_quantity}', '{vehicle.keybox_id}', '{vehicle.keybox_serial}', '{vehicle.is_checked_out}', '{vehicle.check_out_user}', '{vehicle.keybox_id_2}', '{vehicle.keybox_serial_2}', '{vehicle.is_checked_out_2}', '{vehicle.check_out_user_2}', '{vehicle.last_update_key_1}', '{vehicle.last_update_key_2}')")
+                signal = RxSignal(v)
+                cursor.execute("INSERT INTO rx_signal (id, tx, rx, ss, date) " 
+                               + f"VALUES ('{signal.id}', '{signal.tx}', '{signal.rx}', '{signal.ss}', '{signal.date}')")
             cursor.close()
             self.connection.commit()
+
+    def syncCallsignData(self, signal_list):
+        if signal_list != None:
+            cursor = self.connection.cursor()
+            cursor.execute("DELETE FROM callsigns;")
+            for v in signal_list:
+                callsign = Callsign(v)
+                cursor.execute("INSERT INTO callsigns (id, callsign, name, lat, lng) " 
+                               + f"VALUES ('{callsign.id}', '{callsign.callsign}', '{callsign.name}', '{callsign.lat}', '{callsign.lng}')")
+            cursor.close()
+            self.connection.commit()
+
+    def fetchRxSignal(self, callsign):
+        cursor = self.connection.cursor()
+        rows = cursor.execute(f"SELECT rx_signal.*, lat, lng FROM rx_signal LEFT JOIN callsigns ON (callsigns.callsign = tx) WHERE rx LIKE '{callsign}%';").fetchall()
+        signals = self.parseSignals(cursor, rows)
+        return signals
+    
+    def fetchTxSignal(self, callsign):
+        cursor = self.connection.cursor()
+        rows = cursor.execute(f"SELECT rx_signal.*, lat, lng FROM rx_signal LEFT JOIN callsigns ON (callsigns.callsign = rx) WHERE tx LIKE '{callsign}%';").fetchall()
+        signals = self.parseSignals(cursor, rows)
+        return signals
+    
+    def fetchCallsigns(self):
+        cursor = self.connection.cursor()
+        rows = cursor.execute(f"SELECT * FROM callsigns;").fetchall()
+        signals = self.parseCallsigns(cursor, rows)
+        
+        return signals
+    
+    def parseSignals(self, cursor, rows):
+        names = list(map(lambda x: x[0], cursor.description))
+        signals = []
+        for r in rows:
+            v = {}
+            for idx, col in enumerate(names):
+                v[col] = r[idx]
+            signal = RxSignal(v)
+            signals.append(signal)
+        return signals
+    
+    def parseCallsigns(self, cursor, rows):
+        names = list(map(lambda x: x[0], cursor.description))
+        callsigns = []
+        for r in rows:
+            v = {}
+            for idx, col in enumerate(names):
+                v[col] = r[idx]
+            callsign = Callsign(v)
+            callsign.rx_list = self.fetchTxSignal(callsign.callsign)
+            callsigns.append(callsign)
+        return callsigns

@@ -1,7 +1,11 @@
-import os
+import os, sys
 
-from Constants import SETTINGS_DIR
+from PySide6.QtCore import QSize
+from PySide6.QtGui import QIcon
+from PySide6.QtWidgets import QApplication
+from Constants import SETTINGS_DIR, RESOURCE_PATH
 from LocalDatabase import LocalDatabase
+from MainWindow import MainWindow
 
 if __name__ == "__main__":
 
@@ -14,11 +18,17 @@ if __name__ == "__main__":
     ldb.validate()
     ldb.setup()
 
-
+    app = QApplication(sys.argv)
 
     app_icon = QIcon()
-    app_icon.addFile(f'{RESOURCE_PATH}/vetrak_icon.png', QSize(16,16))
-    app_icon.addFile(f'{RESOURCE_PATH}/vetrak_icon.png', QSize(24,24))
-    app_icon.addFile(f'{RESOURCE_PATH}/vetrak_icon.png', QSize(32,32))
-    app_icon.addFile(f'{RESOURCE_PATH}/vetrak_icon.png', QSize(48,48))
-    app_icon.addFile(f'{RESOURCE_PATH}/vetrak_icon.png', QSize(256,256))
+    app_icon.addFile(f'{RESOURCE_PATH}/iegmrs.png', QSize(16,16))
+    app_icon.addFile(f'{RESOURCE_PATH}/iegmrs.png', QSize(24,24))
+    app_icon.addFile(f'{RESOURCE_PATH}/iegmrs.png', QSize(32,32))
+    app_icon.addFile(f'{RESOURCE_PATH}/iegmrs.png', QSize(48,48))
+    app_icon.addFile(f'{RESOURCE_PATH}/iegmrs.png', QSize(256,256))
+    app.setWindowIcon(app_icon)
+
+    window = MainWindow()
+    window.show()
+
+    app.exec()
