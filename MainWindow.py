@@ -88,6 +88,7 @@ class MainWindow(QMainWindow):
         relay_list, non_contact_list = self.createRelayList(cs_data_list, 1)
         output += self.createRelayTable(relay_list)
 
+        output += '\n\n'
 
         table = PrettyTable()
         table.field_names = ['Isolated Callsigns']
