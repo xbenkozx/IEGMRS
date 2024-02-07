@@ -28,10 +28,6 @@ if __name__ == "__main__":
     #Output Primary Relay Path table
     output += "\n\nRELAY PATH\n"
     output += rp.primary_relay_table
-
-    #Output Alternate Relay Path table
-    # output += "\n\nALTERNATE RELAY PATH\n"
-    # output += rp.alternate_replay_table
     output += '\n\n'
 
     #Output Isolated Callsigns table. These are callsigns that have entries for TX but no log for RX signals
@@ -39,7 +35,7 @@ if __name__ == "__main__":
 
     print(output)
 
-    # #Setup settings directory if it doesn't exist
+    #Setup settings directory if it doesn't exist
     # if not os.path.exists(SETTINGS_DIR):
     #     os.mkdir(SETTINGS_DIR)
 

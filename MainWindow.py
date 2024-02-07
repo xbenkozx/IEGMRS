@@ -82,7 +82,10 @@ class MainWindow(QMainWindow):
             row.append(QStandardItem(e.tx))
             row.append(QStandardItem(e.ss))
             row.append(QStandardItem(e.date))
-            row.append(QStandardItem(e.lat + ', ' + e.lng))
+            try:
+                row.append(QStandardItem(e.lat + ', ' + e.lng))
+            except:
+                pass
             model.appendRow(row)
 
         #Set model to table to display the results.

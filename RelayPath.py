@@ -20,23 +20,23 @@ class RelayPath:
         cs_data_list = self.ldb.fetchCallsigns()
 
         #Get all callsigns that are currently in the Signals table. These are the contactable stations. Excludes stations with a signal below the SS Threshold
-        rx_cs_list = self.getContactableCallsignList(cs_data_list)
+        contact_cs_list = self.getContactableCallsignList(cs_data_list)
 
         #Based on the contactable callsign list, create a score based on the signal score summed from all stations that RX that specific station.
-        score_list = self.createScoreList(cs_data_list, rx_cs_list)
+        score_list = self.createScoreList(cs_data_list, contact_cs_list)
 
         #Output SS threshold
         # output = f"PATH SS THRESHOLD: {RelayPath.PATH_SS_THRESHOLD}\n\n"
 
         #Output Relay Signal Score table
         table = PrettyTable()
-        table.field_names = ['Callsign', 'Score', 'RX Count']
+        table.field_names = ['Callsign', 'TX Score', 'TX Count', 'RX Score', 'RX Count']
         for r in score_list:
-            table.add_row([r['callsign'], r['score'], r['count']])
+            table.add_row([r['callsign'], r['tx_score'], r['tx_count'], r['rx_score'], r['rx_count']])
         self.score_table = str(table)
 
         #Output Primary Relay Path table
-        relay_list, non_contact_list = self.createRelayList(cs_data_list, rx_cs_list, score_list)
+        relay_list, non_contact_list = self.createRelayList(cs_data_list, contact_cs_list, score_list)
         self.primary_relay_table = self.createRelayTable(relay_list)
 
         #Output Isolated Callsigns table. These are callsigns that have entries for TX but no log for RX signals
@@ -46,10 +46,10 @@ class RelayPath:
             table.add_row([r])
         self.non_contact_table = str(table)
 
-    def createRelayList(self, cs_data_list, rx_cs_list, score_list):
+    def createRelayList(self, cs_data_list, contact_cs_list, score_list):
         non_contact_list = []
         relay_list = []
-        
+
         #Assign Primary Contact
         primary_callsign = None
 
@@ -75,18 +75,12 @@ class RelayPath:
         if primary_callsign == None:
             return [], []
 
-        # Create simple RX callsign list. This is a stripped down list from the RX callsigns list listing only the callsigns and no other data.
-        primary_callsign.rx_cs = []
-        for rx in primary_callsign.rx_list:
-            if int(rx.ss) >= RelayPath.PATH_SS_THRESHOLD:
-                primary_callsign.rx_cs.append(rx.rx)
-        primary_callsign.rx_cs.append(primary_callsign.callsign)
-
+        primary_callsign.makeCrossList(RelayPath.PATH_SS_THRESHOLD)
         
-        #List callsigns that are contactable but not in the RX list of the primary contact
+        # #List callsigns that are contactable but not in the RX list of the primary contact
         missing_cs = []
-        for cs in rx_cs_list:
-            if cs not in primary_callsign.rx_cs:
+        for cs in contact_cs_list:
+            if cs not in primary_callsign.rx_tx_cs and cs != primary_callsign.callsign:
                 missing_cs.append(cs)
 
         #Loop through the score list
@@ -97,7 +91,7 @@ class RelayPath:
                 appendtolist = False
 
                 #Loop through callsign RX list and check to see if any RX callsigns match in the missing callsigns list.
-                for cs in s['cs_list']:
+                for cs in s['tx_rx_cs_list']:
                     if cs in missing_cs:
                         appendtolist = True     
                         missing_cs.remove(cs)   #Remove contactable callsigns from missing callsigns list.
@@ -114,32 +108,49 @@ class RelayPath:
                 return cs_data
 
     def getContactableCallsignList(self, cs_data_list):
-        rx_cs_list = []
+        contact_cs_list = []
         for e in cs_data_list:
             for rx in e.rx_list:
                 if int(rx.ss) >= RelayPath.PATH_SS_THRESHOLD:
-                    if rx.rx not in rx_cs_list:
-                        rx_cs_list.append(rx.rx)
+                    if rx.rx not in contact_cs_list:
+                        contact_cs_list.append(rx.rx)
 
-        return rx_cs_list
+        return contact_cs_list
 
-    def createScoreList(self, cs_data_list, rx_cs_list):
+    def createScoreList(self, cs_data_list, contact_cs_list):
         score_list = []
         for e in cs_data_list:
-            score = 0
-            count = 0
-            cs_list = []
+            tx_score = 0
+            rx_score = 0
+            tx_count = 0
+            rx_count = 0
+            tx_cs_list = []
+            rx_cs_list = []
             for rx in e.rx_list:
-                if int(rx.ss) >= RelayPath.PATH_SS_THRESHOLD and rx.rx in rx_cs_list:
-                    score += int(rx.ss)
-                    count += 1
-                    cs_list.append(rx.rx)
+                if int(rx.ss) >= RelayPath.PATH_SS_THRESHOLD and rx.rx in contact_cs_list:
+                    
+                    tx_score += int(rx.ss)
+                    tx_count += 1
+                    tx_cs_list.append(rx.rx)
 
-            cs_list = sorted(cs_list)
-            if score > 0:
-                score_list.append({'callsign': e.callsign, 'score': score, 'count': count, 'cs_list': cs_list})
+            for rx in e.tx_list:
+                if int(rx.ss) >= RelayPath.PATH_SS_THRESHOLD and rx.tx in contact_cs_list:
+                    rx_score += int(rx.ss)
+                    rx_count += 1
+                    rx_cs_list.append(rx.tx)
 
-        score_list = sorted(score_list, key=lambda score_list: score_list['score'])
+            tx_cs_list = sorted(tx_cs_list)
+            rx_cs_list = sorted(rx_cs_list)
+
+            tx_rx_cs_list = []
+            for tx in tx_cs_list:
+                if tx in rx_cs_list:
+                    tx_rx_cs_list.append(tx)
+
+            if tx_score > 0:
+                score_list.append({'callsign': e.callsign, 'tx_score': tx_score, 'rx_score': rx_score, 'tx_count': tx_count, 'rx_count': rx_count, 'rx_cs_list': rx_cs_list, 'tx_cs_list': tx_cs_list, 'tx_rx_cs_list': tx_rx_cs_list})
+
+        score_list = sorted(score_list, key=lambda score_list: score_list['tx_score'])
         score_list.reverse()
         return score_list
     
@@ -148,7 +159,7 @@ class RelayPath:
         table.field_names = ['Node', 'Callsign', 'RX Callsigns']
         for score in relay_list:
             cs_list = ""
-            for cs in score['cs_list']:
+            for cs in score['tx_rx_cs_list']:
                 cs_list += cs + '\n'
             # cs_list = cs_list.strip()
             table.add_row([score['node_status'], score['callsign'], cs_list])

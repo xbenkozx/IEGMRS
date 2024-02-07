@@ -131,5 +131,6 @@ class LocalDatabase(QObject):
                 v[col] = r[idx]
             callsign = Callsign(v)
             callsign.rx_list = self.fetchTxSignal(callsign.callsign)
+            callsign.tx_list = self.fetchRxSignal(callsign.callsign)
             callsigns.append(callsign)
         return callsigns
